@@ -13,8 +13,8 @@ pub use packets::response::{BasicStat, FullStat};
 /// - **Io** ([`std::io::Error`]) from the [`std::net::UdpSocket`] and writers
 /// - **Conversion** ([`std::num::ParseIntError`]) from the query packet conversion
 /// - **Conversion** ([`binrw::Error`]) from the query packet conversion
-pub fn basic_stats(addr: &impl ToSocketAddrs) -> Result<response::BasicStat, Error> {
-    let socket = get_socket(addr)?;
+pub fn basic_stats<A: ToSocketAddrs>(addr: A) -> Result<response::BasicStat, Error> {
+    let socket = get_socket(&addr)?;
     let session_id = get_session_id();
     let request_packet = request::PacketBase {
         packet_type: PacketType::Stat,
@@ -45,8 +45,8 @@ pub fn basic_stats(addr: &impl ToSocketAddrs) -> Result<response::BasicStat, Err
 /// - **Io** ([`std::io::Error`]) from the [`std::net::UdpSocket`] and writers
 /// - **Conversion** ([`std::num::ParseIntError`]) from the query packet conversion
 /// - **Conversion** ([`binrw::Error`]) from the query packet conversion
-pub fn full_stats(addr: &impl ToSocketAddrs) -> Result<response::FullStat, Error> {
-    let socket = get_socket(addr)?;
+pub fn full_stats<A: ToSocketAddrs>(addr: A) -> Result<response::FullStat, Error> {
+    let socket = get_socket(&addr)?;
     let session_id = get_session_id();
     let request_packet = request::PacketBase {
         packet_type: PacketType::Stat,
@@ -82,7 +82,7 @@ fn handshake(socket: &UdpSocket, session_id: u32) -> Result<u32, Error> {
 
 fn send_udp(socket: &UdpSocket, req: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     socket.send(req)?;
-    socket.set_read_timeout(Some(std::time::Duration::from_millis(1)))?;
+    socket.set_read_timeout(Some(std::time::Duration::from_millis(100)))?;
 
     let mut buf = [0; 65535];
     let len = socket.recv(&mut buf)?;
@@ -90,7 +90,7 @@ fn send_udp(socket: &UdpSocket, req: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     Ok(buf[..len].to_vec())
 }
 
-fn get_socket(addr: &impl ToSocketAddrs) -> Result<UdpSocket, std::io::Error> {
+fn get_socket<A: ToSocketAddrs>(addr: &A) -> Result<UdpSocket, std::io::Error> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     socket.connect(addr)?;
     Ok(socket)
@@ -124,30 +124,29 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, str::FromStr};
-
     use super::{packets::{request, PacketType, response}, send_udp, Error, get_socket};
 
-    // const SERVER: &str = "127.0.0.1:25565";
-    const SERVER: &str = "felix-pc:25565";
+    const SERVER: &str = "localhost:25565";
 
     #[test]
-    fn handshake() {
-        let socket = get_socket(&SocketAddr::from_str(SERVER).unwrap()).unwrap();
-        crate::handshake(&socket, 0x01020304).unwrap();
+    fn handshake() -> Result<(), Error> {
+        let socket = get_socket(&SERVER)?;
+        crate::handshake(&socket, 0x01020304)?;
+        Ok(())
     }
 
     #[test]
-    fn udp() {
-        let socket = get_socket(&SocketAddr::from_str(SERVER).unwrap()).unwrap();
+    fn udp() -> Result<(), Error> {
+        let socket = get_socket(&SERVER)?;
         let request_packet = request::PacketBase {
             packet_type: PacketType::Handshake,
             session_id: 0x0E030C01,
             payload: request::Handshake
         };
-        let request: Vec<u8> = request_packet.try_into().unwrap();
-        let response = send_udp(&socket, &request).unwrap();
+        let request: Vec<u8> = request_packet.try_into()?;
+        let response = send_udp(&socket, &request)?;
         let response_packet: Result<response::PacketBase<response::Handshake>, Error> = response.try_into();
-        assert!(response_packet.is_ok())
+        assert!(response_packet.is_ok());
+        Ok(())
     }
 }

@@ -1,8 +1,5 @@
-use std::{net::SocketAddr, str::FromStr};
-
 use mcsc_query::{basic_stats, full_stats, Error, FullStat, BasicStat};
 
-// const SERVER: &str = "127.0.0.1:25565";
 const SERVER: &str = "localhost:25565";
 const HOSTIP: &str = "192.168.178.28";
 
@@ -17,7 +14,7 @@ fn basic() -> Result<(), Error> {
 		hostport: 25565,
 		hostip: HOSTIP.to_string()
     };
-    let res = basic_stats(&SocketAddr::from_str(SERVER).unwrap())?;
+    let res = basic_stats(SERVER)?;
     assert_eq!(res, stat);
     Ok(())
 }
@@ -37,7 +34,7 @@ fn full() -> Result<(), Error> {
 		hostip: HOSTIP.to_string(),
         players: vec![],
     };
-    let res = full_stats(&SocketAddr::from_str(SERVER).unwrap())?;
+    let res = full_stats(SERVER)?;
     assert_eq!(res, stat);
     Ok(())
 }
